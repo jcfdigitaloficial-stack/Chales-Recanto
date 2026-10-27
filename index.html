@@ -149,6 +149,54 @@ section.pet{margin-top:84px;padding:clamp(24px,5vw,44px);display:grid;grid-templ
 .pet p{margin:0}
 @media(max-width:560px){section.pet{grid-template-columns:1fr}}
 </style>
+<script id="local-shim">
+/* MODO TESTE LOCAL: se o servidor (/api) não existir, o painel admin funciona com dados salvos neste navegador. Remover antes de publicar com backend. */
+(function(){
+var HASH="e70d594c94c45ea919fb8171bb9dd46b23ab2197bc25a33e5570a7562e05df74",SALT="rf-local-v1",lf=0,lock=0;
+function sha(m){function r(n,x){return(x>>>n)|(x<<(32-n))}var K=[],H=[1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225],c=0,i,j,pr=[];for(i=2;c<64;i++){for(j=2;j<=i/2&&i%j;j++);if(j>i/2){pr.push(i)}c=pr.length}
+for(i=0;i<64;i++)K[i]=(Math.pow(pr[i],1/3)%1)*4294967296|0;
+var u=unescape(encodeURIComponent(m)),w=[],L=u.length;for(i=0;i<L;i++)w[i>>2]|=u.charCodeAt(i)<<(24-(i%4)*8);w[L>>2]|=128<<(24-(L%4)*8);w[(((L+8)>>6)+1)*16-1]=L*8;
+for(var o=0;o<w.length;o+=16){var a=H.slice(),W=[];for(i=0;i<64;i++){if(i<16)W[i]=w[o+i]|0;else{var s0=r(7,W[i-15])^r(18,W[i-15])^(W[i-15]>>>3),s1=r(17,W[i-2])^r(19,W[i-2])^(W[i-2]>>>10);W[i]=(W[i-16]+s0+W[i-7]+s1)|0}
+var S1=r(6,a[4])^r(11,a[4])^r(25,a[4]),ch=(a[4]&a[5])^(~a[4]&a[6]),t1=(a[7]+S1+ch+K[i]+W[i])|0,S0=r(2,a[0])^r(13,a[0])^r(22,a[0]),mj=(a[0]&a[1])^(a[0]&a[2])^(a[1]&a[2]),t2=(S0+mj)|0;a=[(t1+t2)|0,a[0],a[1],a[2],(a[3]+t1)|0,a[4],a[5],a[6]]}
+for(i=0;i<8;i++)H[i]=(H[i]+a[i])|0}
+return H.map(function(x){return("00000000"+(x>>>0).toString(16)).slice(-8)}).join("")}
+var KEY="rf-local-db2",MEM=null,realFetch=window.fetch.bind(window),used=false,force=false;
+function load(){try{var s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}catch(e){}return MEM||{config:null,versao:0,res:[],blk:[],leads:[],auth:0,seq:1}}
+function store(d){MEM=d;try{localStorage.setItem(KEY,JSON.stringify(d))}catch(e){}}
+function out(o,s){return new Response(JSON.stringify(o),{status:s||200,headers:{"content-type":"application/json"}})}
+function badge(){if(used)return;used=true;var b=document.createElement("div");b.textContent="Modo teste local";b.style.cssText="position:fixed;left:8px;bottom:8px;z-index:99;background:#b45309;color:#fff;font:12px/1 sans-serif;padding:6px 9px;border-radius:99px;opacity:.9;pointer-events:none";(document.body?Promise.resolve():new Promise(function(r){document.addEventListener("DOMContentLoaded",r)})).then(function(){document.body.appendChild(b)})}
+function local(url,init){
+ badge();var p=String(url).split("?")[0].replace(/^https?:\/\/[^\/]+/,""),m=((init&&init.method)||"GET").toUpperCase(),body={};try{body=JSON.parse(init.body)}catch(e){}
+ var d=load(),adm=d.auth>Date.now();
+ function need(){return out({error:"Sessão expirada. Entre de novo."},401)}
+ if(p==="/api/site")return out({config:d.config||undefined});
+ if(p==="/api/availability")return out({reservas:d.res.filter(function(r){return r.status==="confirmada"}).map(function(r){return{c:r.chale_id,a:r.check_in,b:r.check_out}}),bloqueios:d.blk.map(function(x){return{c:x.c,d:x.d}})});
+ if(p==="/api/leads"&&m==="POST"){d.leads.push({nome:body.nome,whatsapp:body.whatsapp,perfil:body.perfil,criado_em:new Date().toISOString()});store(d);return out({ok:true})}
+ if(p==="/api/admin/me")return out({autenticado:!!adm,csrf:"local"});
+ if(p==="/api/admin/login"){if(!HASH)return out({error:"Modo teste sem senha configurada."},403);var now=Date.now();if(now<lock)return out({error:"Muitas tentativas. Aguarde 30 segundos."},429);if(sha(SALT+"|"+String(body.usuario||"").trim().toLowerCase()+"|"+String(body.senha||""))===HASH){lf=0;d.auth=now+8*3600000;store(d);return out({csrf:"local"})}lf++;if(lf>=5){lock=now+30000;lf=0}return out({error:"Usuário ou senha incorretos."},401)}
+ if(p==="/api/admin/logout"){d.auth=0;store(d);return out({ok:true})}
+ if(!adm)return need();
+ if(p==="/api/admin/config"&&m==="GET")return out({versao:d.versao,config:d.config||undefined});
+ if(p==="/api/admin/config"&&m==="PUT"){d.config=body.config;d.versao=(d.versao||0)+1;store(d);return out({versao:d.versao})}
+ if(p==="/api/admin/leads")return out({leads:d.leads.slice().reverse()});
+ if(p==="/api/admin/bloqueios"){d.blk=d.blk.filter(function(x){return!(x.c===body.chale_id&&x.d===body.data)});if(body.bloqueado)d.blk.push({c:body.chale_id,d:body.data});store(d);return out({ok:true})}
+ if(p==="/api/admin/reservas"&&m==="GET"){var qm=String(url).match(/[?&]quando=([^&]*)/),t=new Date(),hoje=t.getFullYear()+"-"+("0"+(t.getMonth()+1)).slice(-2)+"-"+("0"+t.getDate()).slice(-2),q=(qm&&decodeURIComponent(qm[1]))||"futuras";
+  var L=d.res.filter(function(r){return q==="todas"||(q==="futuras"?r.check_out>=hoje:r.check_out<hoje)}).sort(function(a,b){return a.check_in<b.check_in?-1:1});return out({reservas:L})}
+ if(p==="/api/admin/reservas"&&m==="POST"){var r={id:d.seq++,chale_id:body.chale_id,check_in:body.check_in,check_out:body.check_out,hospede_nome:body.hospede_nome||"",hospedes:body.hospedes||1,whatsapp:body.whatsapp||"",status:body.status||"pendente"};d.res.push(r);store(d);return out({id:r.id})}
+ var mm=p.match(/^\/api\/admin\/reservas\/(\d+)$/);
+ if(mm&&m==="PATCH"){d.res.forEach(function(r){if(r.id==+mm[1])r.status=body.status});store(d);return out({ok:true})}
+ return out({error:"Rota local não disponível."},404)}
+var probe=null;
+function ready(){if(!probe)probe=realFetch("/api/site",{cache:"no-store"}).then(function(r){var ct=r.headers.get("content-type")||"";if(!(r.ok&&ct.indexOf("json")>=0))force=true}).catch(function(){force=true});return probe}
+function safe(s,init){try{return local(s,init)}catch(e){return out({error:"Erro no modo local: "+(e&&e.message)},500)}}
+window.fetch=function(url,init){
+ var s=typeof url==="string"?url:(url&&url.url)||"";
+ if(s.indexOf("/api/")!==0&&!/^https?:\/\/[^\/]+\/api\//.test(s))return realFetch(url,init);
+ return ready().then(function(){
+  if(force)return safe(s,init);
+  return realFetch(url,init).then(function(r){var ct=r.headers.get("content-type")||"";if(r.status!==401&&(!r.ok||ct.indexOf("json")<0)){force=true;return safe(s,init)}return r},function(){force=true;return safe(s,init)})})}
+})();
+</script>
 </head>
 <body class="soon">
 <div id="ab"><button id="bPv">Ver como cliente</button><span id="sv" role="status"></span><button id="bSave" class="p">Salvar</button><button id="bOut">Sair</button></div>
