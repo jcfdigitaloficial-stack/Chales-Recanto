@@ -271,7 +271,7 @@ function wn(){var d=String(S.phone||"").replace(/\D/g,"");if(d.length<10||/^0+$/
 var SRV={csrf:"",versao:0,sujo:false},ADMRES=[],AV={st:"load",f:0},CFGK=["name","tag","phone","insta","soon","open","rates","long","minN","cap","chalets","promos","extras","infra","pay"];
 function api(m,u,b){var o={method:m,credentials:"same-origin",cache:"no-store",headers:{}};if(b!==undefined){o.headers["content-type"]="application/json";o.body=JSON.stringify(b)}if(m!=="GET"&&SRV.csrf)o.headers["x-csrf-token"]=SRV.csrf;
  return fetch(u,o).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok){var e=new Error(j.error||"Erro do servidor ("+r.status+").");e.status=r.status;throw e}return j})},function(){throw new Error("Sem conexão com o servidor. Tente de novo.")})}
-function mergeCfg(c){if(!c)return;CFGK.forEach(function(k){if(c[k]!==undefined)S[k]=c[k]});if(chal>=S.chalets.length)chal=0}
+function mergeCfg(c){if(!c)return;CFGK.forEach(function(k){if(c[k]!==undefined)S[k]=c[k]});(S.chalets||[]).forEach(function(x){if(x&&x.desc==="Chalé em A com grandes janelas de vidro, em meio à natureza.")x.desc="Chalés suíços amplos, com arquitetura charmosa, ambientes confortáveis e aconchegantes."});if(chal>=S.chalets.length)chal=0}
 function cfgOut(){var o={};CFGK.forEach(function(k){o[k]=S[k]});return o}
 function svMsg(t,bad){var e=$("sv");if(e){e.textContent=t;e.style.color=bad?"#FFB4AB":""}}
 function save(){if(!ADM)return;SRV.sujo=true;svMsg("Alterações não salvas")}
